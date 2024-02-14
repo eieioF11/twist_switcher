@@ -1,0 +1,6 @@
+twist_bridge_node:
+  ros__parameters:
+    twist_bridge:
+      topic_name:
+        input_twist: ["/input/twist1", "/input/twist2"]
+        output_twist: "/cmd_vel"
