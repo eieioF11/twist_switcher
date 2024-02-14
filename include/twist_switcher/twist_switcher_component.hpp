@@ -30,7 +30,7 @@ public:
       std::vector<std::string>{"/input/twist1", "/input/twist2"});
     std::string OUT_TWIST_TOPIC =
       param<std::string>("twist_bridge.topic_name.output_twist", "/output/twist");
-    double PUBLISH_RATE = param<double>("twist_bridge.publish_rate", 0.001);
+    double ROOP_RATE = param<double>("twist_bridge.roop_rate", 0.0001);
     index_ = 0;
     // publisher
     twsit_pub_ =
@@ -46,9 +46,12 @@ public:
     int i = 0;
     for (auto in_topic_name : IN_TWIST_TOPICS) {
       twists_.push_back(stop());
+      get_twists_.push_back(false);
       auto twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-        in_topic_name, rclcpp::QoS(10),
-        [&, i](const geometry_msgs::msg::Twist::SharedPtr msg) { twists_[i] = *msg; });
+        in_topic_name, rclcpp::QoS(10), [&, i](const geometry_msgs::msg::Twist::SharedPtr msg) {
+          twists_[i] = *msg;
+          get_twists_[i] = true;
+        });
       twist_subs_.push_back(twist_sub);
       twist_list_.insert(std::make_pair(in_topic_name, i));
       i++;
@@ -61,15 +64,20 @@ public:
         ems_ = req->data;
         res->success = true;
         res->message = ems_ ? "Emergency stop ON" : "Emergency stop OFF";
+        if (ems_) 
+          twsit_pub_->publish(stop());
       });
 
-    timer_ = this->create_wall_timer(1s * PUBLISH_RATE, [&]() {
-      geometry_msgs::msg::Twist output_twist = stop();
-      if (!ems_)
-        output_twist = twists_[index_];
-      else
-        RCLCPP_WARN(this->get_logger(), "Emergency stop ON");
-      twsit_pub_->publish(output_twist);
+    timer_ = this->create_wall_timer(1s * ROOP_RATE, [&]() {
+      if (get_twists_[index_]) {
+        geometry_msgs::msg::Twist output_twist = stop();
+        if (!ems_)
+          output_twist = twists_[index_];
+        else
+          RCLCPP_WARN(this->get_logger(), "Emergency stop ON");
+        twsit_pub_->publish(output_twist);
+        get_twists_[index_] = false;
+      }
     });
   }
 
@@ -88,6 +96,7 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr ems_srv_;
   // twists
   std::vector<geometry_msgs::msg::Twist> twists_;
+  std::vector<bool> get_twists_;
 
   template <class T>
   T param(const std::string & name, const T & def)
