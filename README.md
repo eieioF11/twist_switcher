@@ -1,4 +1,5 @@
 # twist_switcher
+![example workflow](https://github.com/eieioF11/twist_switcher/actions/workflows/release.yml/badge.svg)
 Node that performs switching of twist, emergency stop, etc.
 
 ## Input
